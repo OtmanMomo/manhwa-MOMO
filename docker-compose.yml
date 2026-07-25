@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: manhwa-mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: manhwa-momo
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - manhwa-network
+
+  # Backend API Server
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: manhwa-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      DATABASE_URL: mongodb://admin:password@mongodb:27017/manhwa-momo?authSource=admin
+      JWT_SECRET: ${JWT_SECRET:-your_secret_key_here}
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - manhwa-network
+    command: npm run dev
+
+  # Frontend Development Server
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: manhwa-frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:5000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - manhwa-network
+    command: npm run dev
+
+  # Redis Cache (Optional)
+  redis:
+    image: redis:7-alpine
+    container_name: manhwa-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - manhwa-network
+
+volumes:
+  mongodb_data:
+  redis_data:
+
+networks:
+  manhwa-network:
+    driver: bridge
